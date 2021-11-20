@@ -162,17 +162,19 @@ async def channel(ctx, *args):
             await ctx.send(f'Invalid type! Channel types can only be : {channelKeys}')
     elif len(args) == 2:
         if args[0] in channels.keys():
-            guildChannels = ctx.guild.channels
-            guildChannels = [c for c in guildChannels if type(c) == discord.TextChannel]
             if args[1].startswith('<') and args[1].endswith('>') and args[1][1] == '#':
                 print(args[1][2:-1])
-                args[1] = args[1][2:-1]
-            guildChannel = discord.utils.get(guildChannels, id=int(args[1]))
+            else:
+                ctx.send("Mentioned channel does not exist on the server!")
+
+            guildChannels = ctx.guild.channels
+            guildChannels = [c for c in guildChannels if type(c) == discord.TextChannel]
+            guildChannel = discord.utils.get(guildChannels, id=int(args[1][2:-1]))
             if guildChannel is not None:  # Checking if mentioned channel exists on the discord server
-                channels[args[0]] = args[1]
+                channels[args[0]] = args[1][2:-1]
                 result = await updateChannels(ctx, channels)
                 if result:
-                    await ctx.send(f'{args[0]} channel set to <#{args[1]}> successfully')
+                    await ctx.send(f'{args[0]} channel set to <#{args[1][2:-1]}> successfully')
                 else:
                     await ctx.send('An error occurred while trying to set the channel')
             else:
