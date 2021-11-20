@@ -1,5 +1,4 @@
 import base64
-
 import discord
 from discord.ext import commands
 from fuzzywuzzy import process
@@ -14,7 +13,8 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 platforms = {'discord', 'epic', 'steam', 'psn', 'xbox'}
 
-mongoClient = mongo.MongoClient("mongodb+srv://barterBois:muli123@cluster0.ng91g.mongodb.net/BarterBotDB?retryWrites=true&w=majority")
+mongoClient = mongo.MongoClient(
+    "mongodb+srv://barterBois:muli123@cluster0.ng91g.mongodb.net/BarterBotDB?retryWrites=true&w=majority")
 db = mongoClient['BarterBotDB']
 tokenTable = db['TokenTable']
 channelTable = db['ChannelTable']
@@ -35,7 +35,8 @@ async def report(ctx, *args):
         return
     if args[0].lower() == 'discord':
         username = args[1].split('#')
-        member = discord.utils.get(ctx.guild.members, name=username[0], discriminator=username[1])
+        member = discord.utils.get(
+            ctx.guild.members, name=username[0], discriminator=username[1])
         if member is None:
             await ctx.send(f'Error! Discord user {args[1]} is not a member of this server')
             return
@@ -44,7 +45,8 @@ async def report(ctx, *args):
     messages = await report_channel.history().flatten()
     reportExists = False
     for msg in messages:
-        if msg.content.startswith(args[1] + ' ' + args[0].lower()):  # startswith "<id> <platform>"
+        # startswith "<id> <platform>"
+        if msg.content.startswith(args[1] + ' ' + args[0].lower()):
             old = msg.content.split(' ')
             old[2] = str(int(old[2]) + 1)  # add 1 to bad report count
             new = ' '.join(old)
@@ -86,10 +88,12 @@ async def post(ctx, *args):
 
     if await checkInItemList(ctx, haves + wants, allItems):
         token = str(time.time_ns()) + str(randint(10000000, 99999999))
-        token = base64.b64encode(token.encode('ascii')).decode('ascii')  # encode into base64 string
+        token = base64.b64encode(token.encode('ascii')).decode(
+            'ascii')  # encode into base64 string
 
         # insert into db
-        entry = {'_id': token, 'message': f'{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'}
+        entry = {'_id': token,
+                 'message': f'{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'}
         result = tokenTable.insert_one(entry)
         if result.acknowledged:
             embed = discord.Embed()
@@ -121,7 +125,8 @@ async def check(ctx, *args):
         return
     if args[0].lower() == 'discord':
         username = args[1].split('#')
-        member = discord.utils.get(ctx.guild.members, name=username[0], discriminator=username[1])
+        member = discord.utils.get(
+            ctx.guild.members, name=username[0], discriminator=username[1])
         if member is None:
             await ctx.send(f'Error! Discord user {args[1]} is not a member of this server')
             return
@@ -129,8 +134,9 @@ async def check(ctx, *args):
     report_channel = bot.get_channel(channels['reports'])
     messages = await report_channel.history().flatten()
     for msg in messages:
-        if msg.content.startswith(args[1] + ' ' + args[0]):  # startswitth"<id> <platform>"
-            old = msg.content.split(' ');
+        # startswitth"<id> <platform>"
+        if msg.content.startswith(args[1] + ' ' + args[0]):
+            old = msg.content.split(' ')
             print(old)
             await ctx.send(f'Player {args[1]} has {old[2]} reports.')
             return
@@ -163,7 +169,8 @@ async def channel(ctx, *args):
     elif len(args) == 2:
         if args[0] in channels.keys():
             guildChannels = ctx.guild.channels
-            guildChannels = [c for c in guildChannels if type(c) == discord.TextChannel]
+            guildChannels = [c for c in guildChannels if type(
+                c) == discord.TextChannel]
             if args[1].startswith('<') and args[1].endswith('>') and args[1][1] == '#':
                 print(args[1][2:-1])
                 args[1] = args[1][2:-1]
@@ -221,7 +228,8 @@ async def checkInItemList(ctx, userItems, itemList):
 
 async def getChannels(ctx):
     guildID = ctx.guild.id
-    channels = channelTable.find_one({'_id': guildID}, {'_id': 0})  #find channels of guild and don't include the id in the result
+    # find channels of guild and don't include the id in the result
+    channels = channelTable.find_one({'_id': guildID}, {'_id': 0})
     if channels is None:
         channels = {key: None for key in channelKeys}
     return channels
@@ -232,9 +240,35 @@ async def updateChannels(ctx, channels):
         channels['_id'] = ctx.guild.id
         result = channelTable.insert_one(channels)
         if not result.acknowledged:
-            print(f"ERROR: Couldn't set channels: {channels} for {ctx.guild.id}")
+            print(
+                f"ERROR: Couldn't set channels: {channels} for {ctx.guild.id}")
         return result.acknowledged
     return True
+
+
+@bot.command()
+async def verify(ctx, *args):
+    """
+    !verify <token>: token is a string
+    """
+    channels = await getChannels(ctx)
+    if len(args) != 2:
+        await ctx.send('Invalid input length! Check !help for syntax')
+        return
+
+    token = args[0]
+    entry = {'_id': token,
+             'message': f'{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'}
+
+    report_channel = bot.get_channel(channels['reports'])
+    messages = await report_channel.history().flatten()
+    for msg in messages:
+        # startswitth"<id> <platform>"
+        if msg.content.startswith(args[1] + ' ' + args[0]):
+            old = msg.content.split(' ')
+            print(old)
+            await ctx.send(f'Player {args[1]} has {old[2]} reports.')
+            return
 
 
 bot.run('OTA3MTA5OTM0OTU5ODI5MDQ0.YYiZ9Q.AlQj1fjgXbBkt6eChf1Kr_tDRaU')
