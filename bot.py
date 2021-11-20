@@ -14,11 +14,12 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 platforms = {'discord', 'epic', 'steam', 'psn', 'xbox'}
 
-mongoClient = mongo.MongoClient("mongodb+srv://barterBois:muli123@cluster0.ng91g.mongodb.net/BarterBotDB?retryWrites=true&w=majority")
+mongoClient = mongo.MongoClient(
+    "mongodb+srv://barterBois:muli123@cluster0.ng91g.mongodb.net/BarterBotDB?retryWrites=true&w=majority")
 db = mongoClient['BarterBotDB']
 tokenTable = db['TokenTable']
 channelTable = db['ChannelTable']
-channelKeys = ['item-list', 'reports']
+channelKeys = ['item-list', 'reports', 'posts']
 
 
 @bot.command()
@@ -63,6 +64,7 @@ async def post(ctx, *args):
     channels = await getChannels(ctx)
     msg = ctx.message.content.lower()
     if len(args) < 2:
+        #await postError(ctx, args, 'Too few parameters! Check !help for syntax')
         await ctx.send('Too few parameters! Check !help for syntax')
         return
     if msg.find('[h]') == -1 or msg.find('[w]') == -1:  # if either have or want do not exist
@@ -100,6 +102,11 @@ async def post(ctx, *args):
         else:
             await ctx.send(f"Unable to post trade: Internal Server Error")
 
+
+#
+# async def postError(ctx, *args, reply):
+#     ctx.message.id
+#     ctx.message
 
 @bot.command()
 async def test(ctx):
@@ -223,7 +230,8 @@ async def checkInItemList(ctx, userItems, itemList):
 
 async def getChannels(ctx):
     guildID = ctx.guild.id
-    channels = channelTable.find_one({'_id': guildID}, {'_id': 0})  #find channels of guild and don't include the id in the result
+    channels = channelTable.find_one({'_id': guildID},
+                                     {'_id': 0})  # find channels of guild and don't include the id in the result
     if channels is None:
         channels = {key: None for key in channelKeys}
     return channels
@@ -237,6 +245,48 @@ async def updateChannels(ctx, channels):
             print(f"ERROR: Couldn't set channels: {channels} for {ctx.guild.id}")
         return result.acknowledged
     return True
+
+
+@bot.command()
+async def price(ctx, *args):
+    itemName = ''
+    for arg in args:
+        itemName += arg
+    channels = await getChannels(ctx)
+    postChannel = bot.get_channel(channels['posts'])
+    messages = await postChannel.history(limit=500).flatten()
+    messages = [x for x in messages if not x.author.bot]
+    results = []
+    count = 0
+    for msg in messages:
+        text = msg.content
+        text = text.replace('!post', '')
+        text = text.replace('[h]', '')
+        items = text.split('[w]')
+        haves = items[0].split(',')
+        haves = [x.strip().rstrip().split() for x in haves]
+        wants = items[1].split(',')
+        wants = [x.strip().rstrip().split() for x in wants]
+        result = process.extractOne(itemName, haves + wants)
+        if result[1] > 93:
+            i1 = haves.index(result[0]) if result[0] in haves else None
+            i2 = wants.index(result[0]) if result[0] in wants else None
+            if i1 is None:
+                results.append([haves[i2], msg])
+            else:
+                results.append([wants[i1], msg])
+            count += 1
+            if count > 4:
+                break
+    table = t2a(header=["Barter Item", "Discord User", "Post Link"],
+                body=[[x[0],
+                       f'@{x[1].author.name}#{x[1].author.discrimninator}',
+                       f'(link)[{x[1].jump_url}]'] for x in results],
+                style=PresetStyle.thin_compact_rounded)
+    embed = discord.Embed()
+    embed.description = table
+    embed.title = f'The last {len(results)} posts for {itemName}'
+    await ctx.send(embed=embed)
 
 
 bot.run('OTA3MTA5OTM0OTU5ODI5MDQ0.YYiZ9Q.AlQj1fjgXbBkt6eChf1Kr_tDRaU')
