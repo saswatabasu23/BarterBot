@@ -14,8 +14,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 platforms = {'discord', 'epic', 'steam', 'psn', 'xbox'}
 
-mongoClient = mongo.MongoClient(
-    "mongodb+srv://barterBois:muli123@cluster0.ng91g.mongodb.net/BarterBotDB?retryWrites=true&w=majority")
+mongoClient = mongo.MongoClient("mongodb+srv://barterBois:muli123@cluster0.ng91g.mongodb.net/BarterBotDB?retryWrites=true&w=majority")
 db = mongoClient['BarterBotDB']
 tokenTable = db['TokenTable']
 channelTable = db['ChannelTable']
@@ -64,7 +63,6 @@ async def post(ctx, *args):
     channels = await getChannels(ctx)
     msg = ctx.message.content.lower()
     if len(args) < 2:
-        #await postError(ctx, args, 'Too few parameters! Check !help for syntax')
         await ctx.send('Too few parameters! Check !help for syntax')
         return
     if msg.find('[h]') == -1 or msg.find('[w]') == -1:  # if either have or want do not exist
@@ -102,11 +100,6 @@ async def post(ctx, *args):
         else:
             await ctx.send(f"Unable to post trade: Internal Server Error")
 
-
-#
-# async def postError(ctx, *args, reply):
-#     ctx.message.id
-#     ctx.message
 
 @bot.command()
 async def test(ctx):
@@ -230,8 +223,7 @@ async def checkInItemList(ctx, userItems, itemList):
 
 async def getChannels(ctx):
     guildID = ctx.guild.id
-    channels = channelTable.find_one({'_id': guildID},
-                                     {'_id': 0})  # find channels of guild and don't include the id in the result
+    channels = channelTable.find_one({'_id': guildID}, {'_id': 0})  #find channels of guild and don't include the id in the result
     if channels is None:
         channels = {key: None for key in channelKeys}
     return channels
@@ -287,6 +279,31 @@ async def price(ctx, *args):
     embed.description = table
     embed.title = f'The last {len(results)} posts for {itemName}'
     await ctx.send(embed=embed)
+
+
+@bot.command()
+async def verify(ctx, *args):
+    """
+    !verify <token>: token is a string
+    """
+    channels = await getChannels(ctx)
+    if len(args) != 2:
+        await ctx.send('Invalid input length! Check !help for syntax')
+        return
+
+    token = args[0]
+    entry = {'_id': token,
+             'message': f'{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'}
+
+    report_channel = bot.get_channel(channels['reports'])
+    messages = await report_channel.history().flatten()
+    for msg in messages:
+        # startswitth"<id> <platform>"
+        if msg.content.startswith(args[1] + ' ' + args[0]):
+            old = msg.content.split(' ')
+            print(old)
+            await ctx.send(f'Player {args[1]} has {old[2]} reports.')
+            return
 
 
 bot.run('OTA3MTA5OTM0OTU5ODI5MDQ0.YYiZ9Q.AlQj1fjgXbBkt6eChf1Kr_tDRaU')
