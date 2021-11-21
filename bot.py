@@ -100,8 +100,8 @@ async def post(ctx, *args):
 async def test(ctx):
     print(ctx.message.author.display_name)
     print(ctx.message.author.discriminator)
-    print(' [link](https://discord.com/channels/907109404535562260/911995393955495947/912018896561795102)       camo       @Thunderlined#2622')
-    await ctx.reply('[link](https://discord.com/channels/907109404535562260/911995393955495947/912018896561795102)')
+
+
 
 @bot.command()
 async def check(ctx, *args):
@@ -291,7 +291,7 @@ async def price(ctx, *args):
             if count > 4:
                 break
     if count != 0:
-        body = [[ f'[link]', ' '.join(x[0]), f'@{x[1].author.name}#{x[1].author.discriminator}'] for x in results]
+        body = [[f'[link]', ' '.join(x[0]), f'@{x[1].author.name}#{x[1].author.discriminator}'] for x in results]
         print(body)
         table = t2a(header=["Post Link", "Barter Item", "Discord User"],
                     body=body,
@@ -314,31 +314,58 @@ async def price(ctx, *args):
     else:
         await ctx.reply(f'No posts found for {itemName}')
 
+
 @bot.command()
 async def verify(ctx, *args):
     """
-    !verify <token>: token is a string
+    !verify <token>: token received from other trader
     """
     channels = await getChannels(ctx)
-    if len(args) != 2:
+    if len(args) != 1:
         await ctx.reply('Invalid input length! Check !help for syntax')
         return
 
     token = args[0]
-    entry = {'_id': token,
-             'message': f'{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'}
+    # entry = {'_id': token,'message': f'{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'}
+    result = tokenTable.find_one({'_id': token})
+    if result is None:
+        await ctx.reply('Invalid token entered!')
+        return
+    result = result['message'].split('/')
+    guildID = int(result[0])
+    channelID = int(result[1])
+    messageID = int(result[2])
+    print(f"guild:{guildID}\tchannel:{channelID}\tmessage:\t{messageID}")
+    try:
+        message = await bot.get_guild(guildID).get_channel(channelID).fetch_message(messageID)
+    except discord.NotFound:
+        await ctx.reply('Original post message was deleted. Player\'s post could not be verified.')
+        return
+    except discord.Forbidden:
+        await ctx.reply('Cannot access original post message. Player\'s post could not be verified.')
+        return
+    except discord.HTTPException:
+        await ctx.reply('A network error occurred. Player\'s post could not be verified.')
+        return
 
+    authorID = message.author.name+'#'+message.author.discriminator
     report_channel = bot.get_channel(channels['reports'])
     messages = await report_channel.history().flatten()
+    reportExists = False
     for msg in messages:
         # startswitth"<id> <platform>"
-        if msg.content.startswith(args[1] + ' ' + args[0]):
+        if msg.content.startswith(authorID+' discord'):
             old = msg.content.split(' ')
-            print(old)
-            await ctx.reply(f'Player {args[1]} has {old[2]} reports.')
-            return
+            old[3] = str(int(old[3]) + 1)  # add 1 to good report count
+            new = ' '.join(old)
+            await msg.edit(content=new)
+            reportExists = True
+    if not reportExists:
+        await report_channel.send(authorID + ' discord 0 1')
 
-
+    tokenTable.delete_one({'_id': token})
+    await message.delete()
+    await ctx.reply(f"Player @{authorID}'s post has been verified successfully.")
 
 
 bot.run('OTA3MTA5OTM0OTU5ODI5MDQ0.YYiZ9Q.AlQj1fjgXbBkt6eChf1Kr_tDRaU')
