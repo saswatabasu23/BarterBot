@@ -128,7 +128,7 @@ async def check(ctx, *args):
         if msg.content.startswith(args[1] + ' ' + args[0]):  # startswitth"<id> <platform>"
             old = msg.content.split(' ');
             print(old)
-            await ctx.reply(f'Player {args[1]} has {old[2]} reports.')
+            await ctx.reply(f'Player {args[1]} has {old[2]} reports and {old[3]} verified trades.')
             return
 
 
@@ -157,7 +157,7 @@ async def channel(ctx, *args):
         channels[args[0]] = ctx.message.channel.id
         result = await updateChannels(ctx, channels)
         if result:
-            await ctx.reply(f'{args[0]} channel set to <#{ctx.message.channel.id} successfully>')
+            await ctx.reply(f'{args[0]} channel set to <#{ctx.message.channel.id}> successfully')
         else:
             await ctx.reply('An error occurred while trying to set the channel')
     elif len(args) == 2:
@@ -199,6 +199,9 @@ async def checkInItemList(ctx, userItems, itemList):
         print(result)
         if result[1] > 93:
             valid = True
+            msg = ctx.message.content
+            msg = msg.replace(query, result[0])
+            await ctx.message.edit(content=msg)
         elif result[1] > 60:
             valid = False
             notFound.append([query, result[0] + f' ({result[1]})'])
@@ -267,7 +270,8 @@ async def price(ctx, *args):
 
     postChannel = bot.get_channel(channels['posts'])
     messages = await postChannel.history(limit=500).flatten()
-    messages = [x for x in messages if (not x.author.bot) and x.content.startswith('!post')]
+    messages = [x for x in messages if ((not x.author.bot) and x.content.startswith('!post'))]
+    print([msg.content for msg in messages])
     results = []
     count = 0
     for msg in messages:
@@ -279,6 +283,8 @@ async def price(ctx, *args):
         haves = [x.strip().rstrip().split() for x in haves]
         wants = items[1].split(',')
         wants = [x.strip().rstrip().split() for x in wants]
+        haves = [' '.join([a for a in x if not a.isnumeric()]) for x in haves]      # removing numbers from haves
+        wants = [' '.join([a for a in x if not a.isnumeric()]) for x in wants]      # removing numbers from wants
         result = process.extractOne(itemName, haves + wants)
         if result[1] > 93:
             i1 = haves.index(result[0]) if result[0] in haves else None
@@ -291,7 +297,7 @@ async def price(ctx, *args):
             if count > 4:
                 break
     if count != 0:
-        body = [[f'[link]', ' '.join(x[0]), f'@{x[1].author.name}#{x[1].author.discriminator}'] for x in results]
+        body = [[f'[link]', ' '.join(x[0]), f'@{x[1].author.name}'] for x in results]
         print(body)
         table = t2a(header=["Post Link", "Barter Item", "Discord User"],
                     body=body,
@@ -301,6 +307,7 @@ async def price(ctx, *args):
         for line in table.splitlines():
             if '[link]' in line:
                 line = line.replace('[link]', f'`[link]({results[i][1].jump_url})`')
+                line = line.replace(f'@{results[i][1].author.name}', f'`{results[i][1].author.mention}`')
                 i += 1
             line = '`' + line + '`\n'
             temp += line
@@ -309,7 +316,7 @@ async def price(ctx, *args):
         embed = discord.Embed()
         embed.description = f'{table}'
         embed.title = f'The last {len(results)} posts for {itemName}'
-        await ctx.reply(embed=embed)
+        await ctx.reply(embed=embed, allowed_mentions=discord.AllowedMentions(replied_user=False))
         print(f'The last {len(results)} posts for {itemName}\n{table}')
     else:
         await ctx.reply(f'No posts found for {itemName}')
@@ -364,8 +371,8 @@ async def verify(ctx, *args):
         await report_channel.send(authorID + ' discord 0 1')
 
     tokenTable.delete_one({'_id': token})
+    await ctx.reply(f"User {message.author.mention} 's post has been verified successfully.")
     await message.delete()
-    await ctx.reply(f"Player @{authorID}'s post has been verified successfully.")
 
 
 bot.run('OTA3MTA5OTM0OTU5ODI5MDQ0.YYiZ9Q.AlQj1fjgXbBkt6eChf1Kr_tDRaU')
